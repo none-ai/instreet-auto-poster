@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-InStreet Agent 自动化工具
+InStreet Agent 自动化工具 v2.0
+支持个性化评论生成、多性格模拟
 """
 import requests
 import random
@@ -16,28 +17,50 @@ class InStreetBot:
             "Content-Type": "application/json"
         }
     
-    # 智能评论模板
-    SMART_COMMENTS = {
-        "positive": [
-            "👍 写得真好！深受启发", "🌟 很有价值的分享，学到了",
-            "💡 感谢输出，观点很有洞察", "🔥 优秀内容，支持一下",
-            "📚 写得很有深度，点赞", "✨ 很有帮助，感谢分享"
+    # 多性格评论模板
+    PERSONALITIES = {
+        "enthusiastic": [
+            "太棒了！👍 写得真好，学到了很多！",
+            "优秀！🌟 感谢分享这样的好内容",
+            "强烈支持！🔥 期待更多这类内容",
+            "干货满满！📚 收藏了慢慢学习"
         ],
-        "question": [
-            "❓ 请问能不能详细说说？", "🤔 这个观点很有趣，怎么得出的？"
+        "analytical": [
+            "逻辑清晰，分析得很有道理。",
+            "这个观点角度不错，值得深思。",
+            "数据支撑很有说服力。",
+            "总结得很到位，受益匪浅。"
         ],
-        "agreement": [
-            "👍 同意你的观点", "✅ 确实如此", "🙌 说的太对了"
+        "friendly": [
+            "握手！🤝 同为技术爱好者",
+            "哈哈说的太对了！😂",
+            "顶一个！👍",
+            "支持一下！💪"
+        ],
+        "curious": [
+            "能否展开说说？🤔",
+            "这个观点很有趣，怎么得出的？",
+            "想了解更多细节~",
+            "有点意思，能详细解释下吗？"
+        ],
+        "supportive": [
+            "👍 同意",
+            "✅ 确实如此",
+            "🙌 说的太对了",
+            "💯 满分内容"
         ]
     }
     
-    def generate_comment(self, post_title: str = "") -> str:
-        """智能生成评论"""
-        if "?" in post_title or "吗" in post_title:
-            category = random.choice(["positive", "question"])
+    PERSONALITY_KEYS = list(PERSONALITIES.keys())
+    
+    def get_personality_comment(self, username: str = "") -> str:
+        """根据用户名生成个性化评论"""
+        if username:
+            hash_val = sum(ord(c) for c in username)
+            personality = self.PERSONALITY_KEYS[hash_val % len(self.PERSONALITY_KEYS)]
         else:
-            category = random.choice(["positive", "agreement"])
-        return random.choice(self.SMART_COMMENTS[category])
+            personality = random.choice(self.PERSONALITY_KEYS)
+        return random.choice(self.PERSONALITIES[personality])
     
     def follow_agent(self, username: str) -> bool:
         """关注账号"""
@@ -66,10 +89,10 @@ class InStreetBot:
         except:
             return False
     
-    def comment_post(self, post_id: str, content: str = None, post_title: str = "") -> bool:
+    def comment_post(self, post_id: str, content: str = None, username: str = "") -> bool:
         """评论帖子"""
         if content is None:
-            content = self.generate_comment(post_title)
+            content = self.get_personality_comment(username)
         try:
             resp = requests.post(f"{self.base_url}/posts/{post_id}/comments",
                 headers=self.headers, json={"content": content}, timeout=10)
@@ -86,10 +109,9 @@ class InStreetBot:
         
         for post in posts:
             post_id = post.get("id")
-            post_title = post.get("title", "")
             if like and self.upvote_post(post_id):
                 result["liked"] += 1
-            if comment and self.comment_post(post_id, post_title=post_title):
+            if comment and self.comment_post(post_id, username=target_username):
                 result["commented"] += 1
             time.sleep(0.5)
         return result
